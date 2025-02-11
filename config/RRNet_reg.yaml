@@ -1,0 +1,20 @@
+data_dir : "D:/Notebook_workdir/thesis/data"
+
+object_type: 'reg'
+mode: post-RNN
+reg_columns : ["FeH", "CH", "Teff", "logg", "CFe"]
+cls_columns: ['f_CEMP']
+cls_dict: {0: 'MP', 1: 'CEMP', 2: 'NMP'}
+num_classes: 3
+
+y_mean : [-8.81020067e-01, -9.78005818e-01, 4.91095684e+03, 2.55795385e+00, -9.69857512e-02]
+y_std : [7.61077821e-01, 8.42965361e-01, 4.97515564e+02, 1.15882902e+00, 3.06636238e-01]
+list_inplanes: [20,40,80,160]
+lr: 0.001
+
+object_name: 'RRNet_reg'
+
+resume_from : 'D:/Notebook_workdir/thesis/model_save/RRNet_cls/best.pth'
+
+loss: 'CrossEntropyLoss'
+model: 'RRNet'

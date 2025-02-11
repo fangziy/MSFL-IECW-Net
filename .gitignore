@@ -1,0 +1,12 @@
+**/*.csv
+**/*.png
+**/*.jpg
+**/*.json
+**/*.pth
+**/*.pyc
+**/*.gz
+**/*.fits
+**/*.ipynb
+**/*.txt
+**/*.npy
+**/*.pkl
