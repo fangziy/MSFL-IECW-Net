@@ -170,6 +170,8 @@ for i in range(args.num_noise_block):
     if args.model=='ResNet':
         model = ResNet(num_label=y_size,list_inplanes=args.list_inplanes).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=lr)
+    print(X_train.shape[1])
+    print(args.num_noise_block)
     assert X_train.shape[1]%args.num_noise_block==0
     for epoch in tqdm(range(num_epochs)):
         model.train()

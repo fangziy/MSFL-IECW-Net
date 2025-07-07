@@ -1,4 +1,3 @@
-
 import torch
 import torch.nn as nn
 import numpy as np
@@ -119,13 +118,12 @@ class embedding(nn.Module):
 
 class MPBDNet(nn.Module):
     def __init__(self,
-                num_label=3,
+                num_cls=3,#分类的种类数
+                num_reg=5,#回归的变量数
                 list_inplanes= [3,6,18],
                 num_rnn_sequence = 18,
                 embedding_c=50,
-                len_spectrum=3834,
-                cls_columns=[],
-                reg_columns=[],
+                len_spectrum=4900,
                 object_type="cls",
                 blocks_length=3
                 ):
@@ -176,7 +174,7 @@ class MPBDNet(nn.Module):
             batch_first=True,
         )
         self.fc1_input_length = self.caculate_fc_input_length(len_spectrum)
-        print(self.fc1_input_length)
+        # print(f"FC1输入维度: {self.fc1_input_length}")
         self.fc1 = nn.Sequential(
             nn.Linear(
                 in_features=self.fc1_input_length,
@@ -185,7 +183,7 @@ class MPBDNet(nn.Module):
             nn.ReLU(),
             nn.Dropout(p=0.3),
         )
-        if self.object_type=="cls" or self.object_type=="reg_cls":
+        if self.object_type=="cls" or self.object_type=="reg_cls" or self.object_type=="cls_reg":
             self.cls_benck = nn.Sequential(
                 nn.Linear(
                     in_features=256,
@@ -197,9 +195,9 @@ class MPBDNet(nn.Module):
         
             self.cls = nn.Linear(
                 in_features=128,
-                out_features=num_label,
+                out_features=num_cls,
             )
-        if self.object_type=="reg" or self.object_type=="reg_cls":
+        if self.object_type=="reg" or self.object_type=="reg_cls" or self.object_type=="cls_reg":
             self.reg_benck = nn.Sequential(
                 nn.Linear(
                     in_features=256,
@@ -210,7 +208,7 @@ class MPBDNet(nn.Module):
             )
             self.reg = nn.Linear(
                 in_features=128,
-                out_features=len(reg_columns),
+                out_features=num_reg,
             )
 
     def caculate_fc_input_length(self, input_length):
@@ -221,6 +219,7 @@ class MPBDNet(nn.Module):
         x = torch.randn(1, 1, input_length)
         x = self.MPBDBlock_list(x)
         x = torch.relu(x)
+        
         x = self.embeding(x)
         x = (self.rnn(x)[0] + torch.flip(self.rnn2(torch.flip(x, dims=[1]))[0], dims=[1])) / 2
         x = x.flatten(1)
@@ -248,13 +247,51 @@ class MPBDNet(nn.Module):
 
 
     def forward(self, x):
+        # print(x.shape)
         if x.size(1)%8!=0:
             x=torch.cat([x, torch.zeros([x.size(0),x.size(1)%8]).to(x.device)], dim=1)
         x = x.unsqueeze(1)
         x = self.MPBDBlock_list(x)
         x = torch.relu(x)
         x = self.embeding(x)
-        # x=torch.concat(self.rnn(x)[0],torch.flip(self.rnn2(torch.flip(x,dims=[1]))[0],dims=[1]),dim=1)
         x=(self.rnn(x)[0]+torch.flip(self.rnn2(torch.flip(x,dims=[1]))[0],dims=[1]))/2
-        print(x.flatten(1).shape)
-        x = self.fc1(x.flatten(1))
+        # print(f"展平后的张量形状: {x.flatten(1).shape}")
+        x_flattened = self.fc1(x.flatten(1))
+        out_put={}
+        if self.object_type == "cls":
+            cls_output = self.cls(self.cls_benck(x_flattened))
+            out_put['cls'] = cls_output
+        elif self.object_type == "reg":
+            reg_output = self.reg(self.reg_benck(x_flattened))
+            out_put['reg'] = reg_output
+        elif self.object_type == "reg_cls" or self.object_type == "cls_reg":
+            cls_output = self.cls(self.cls_benck(x_flattened))
+            reg_output = self.reg(self.reg_benck(x_flattened))
+            out_put['cls'] = cls_output
+            out_put['reg'] = reg_output
+
+        return out_put
+
+if __name__ == "__main__":
+    # 创建模型实例
+    model = MPBDNet(
+        num_classes=3,
+        list_inplanes=[3, 6, 18],
+        len_spectrum=4900,
+        object_type="cls"
+    )
+    
+    # 创建随机输入数据
+    x = torch.randn(2, 3834)  # 批次大小为2，序列长度为3834
+    
+    # 前向传播
+    print("模型测试中...")
+    output = model(x)
+    
+    # 打印输出结果
+    if isinstance(output, tuple):
+        print(f"分类输出形状: {output[0].shape}")
+        print(f"回归输出形状: {output[1].shape}")
+    else:
+        print(f"输出形状: {output.shape}")
+    print("测试完成!")    

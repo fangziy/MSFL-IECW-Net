@@ -1,0 +1,46 @@
+object_type: 'cls'
+
+object_name: 'MPBD_cls_light_aug'
+data_dir : "D:/Notebook_workdir/thesis/data"
+model: 
+  name: 'MPBDNet'
+  list_inplanes: [20,40,80,160]
+  len_spectrum: 4900
+
+reg_columns : ["FeH", "CH", "Teff", "logg", "CFe"]
+cls_columns: ['f_CEMP']
+cls_dict: {0: 'MP', 1: 'CEMP', 2: 'NMP'}
+num_classes: 3
+
+y_mean : [-8.81020067e-01, -9.78005818e-01, 4.91095684e+03, 2.55795385e+00, -9.69857512e-02]
+y_std : [7.61077821e-01, 8.42965361e-01, 4.97515564e+02, 1.15882902e+00, 3.06636238e-01]
+
+lr: 0.0001
+
+loss: 
+  cls_loss:
+    loss_name: 'CrossEntropyLoss'
+    rate: 1
+
+scheduler:
+  name: 'StepLR'
+  step_size: 30
+  gamma: 0.75
+
+resume_from : 'D:/Notebook_workdir/thesis/model_save/MPBD_cls/best.pth'
+
+# 轻量级数据增强配置 - 只启用最安全的增强方法
+data_augmentation:
+  probability: 0.3  # 30%的样本会被增强，相对保守
+  methods:
+    # 高斯噪声：模拟仪器噪声（最常用且安全）
+    gaussian_noise:
+      enabled: True
+      probability: 0.5
+      std: 0.005  # 较小的噪声
+      
+    # 光谱缩放：模拟仪器响应差异（通用且安全）
+    spectral_scaling:
+      enabled: True
+      probability: 0.4
+      range: 0.05  # ±5%的缩放范围，很保守 

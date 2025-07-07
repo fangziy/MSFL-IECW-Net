@@ -1,4 +1,4 @@
-data_dir : "D:/Notebook_workdir/Metal-Poor/data/parameter_predict"
+data_dir : "D:/Notebook_workdir/thesis/data"
 object_type: 'cls'
 mode: raw
 reg_columns : ["FeH", "CH", "Teff", "logg", "CFe"]
@@ -8,12 +8,25 @@ num_classes: 3
 
 y_mean : [-8.81020067e-01, -9.78005818e-01, 4.91095684e+03, 2.55795385e+00, -9.69857512e-02]
 y_std : [7.61077821e-01, 8.42965361e-01, 4.97515564e+02, 1.15882902e+00, 3.06636238e-01]
-list_inplanes: [20,40,80,160]
-lr: 0.001
 
 object_name: 'ResNet_cls'
 
 resume_from : 'D:/Notebook_workdir/thesis/model_save/ResNet_cls/best.pth'
 
-loss: 'CrossEntropyLoss'
-model: 'RRNet'
+lr: 0.001
+
+model:
+  name: 'RRNet'
+  list_inplanes: [20,40,80,160]
+  len_spectrum: 3834
+  sequence_len: 50
+
+loss: 
+  cls_loss:
+    loss_name: 'CrossEntropyLoss'
+    rate: 1
+
+scheduler:
+  name: 'StepLR'
+  step_size: 30
+  gamma: 0.75

@@ -1,0 +1,46 @@
+# 模型融合配置文件 - 分类任务
+# 可以融合多个已训练好的分类模型
+
+# 基本任务配置
+object_type: 'cls'
+data_dir: "D:/Notebook_workdir/thesis/data"
+
+# 标签配置
+reg_columns: ["FeH", "CH", "Teff", "logg", "CFe"]
+cls_columns: ['f_CEMP']
+cls_dict: {0: 'MP', 1: 'CEMP', 2: 'NMP'}
+
+# 标准化参数
+y_mean: [-8.81020067e-01, -9.78005818e-01, 4.91095684e+03, 2.55795385e+00, -9.69857512e-02]
+y_std: [7.61077821e-01, 8.42965361e-01, 4.97515564e+02, 1.15882902e+00, 3.06636238e-01]
+
+# 融合模型列表
+models:
+  # - name: 'StarNet'
+  #   path: 'D:/Notebook_workdir/thesis/model_save/StarNet_cls/best.pth'
+  #   weight: 1.0  # 模型权重
+  #   len_spectrum: 4900
+    
+  - name: 'RRNet'
+    path: 'D:/Notebook_workdir/thesis/model_save/RRNet_cls/best.pth'
+    weight: 1.2  # 给RRNet更高的权重
+    list_inplanes: [20,40,80,160]
+    len_spectrum: 3834
+    sequence_len: 50
+    mode: 'post-RNN'
+    
+  - name: 'MPBDNet'
+    path: 'D:/Notebook_workdir/thesis/model_save/MPBD_cls/best.pth'
+    weight: 1.1
+    list_inplanes: [20,40,80,160]
+    len_spectrum: 4900
+    
+  # - name: 'BGANet'
+  #   path: 'D:/Notebook_workdir/thesis/model_save/BGANet_cls/best.pth'
+  #   weight: 0.9
+  #   len_spectrum: 4900
+
+# 融合策略配置
+ensemble:
+  method: 'weighted_average'  # 加权平均
+  normalize_weights: true     # 是否归一化权重 

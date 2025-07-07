@@ -92,27 +92,28 @@ class RRNet(nn.Module):
         "raw": The raw ResNet model.
         "pre-RNN": Pre-embedding RNN on ResNet model.
         "post-RNN": Post-embedding RNN on ResNet model.
-    @num_label: The number of labels.
+    @object_type: 'cls', 'reg', 'cls_reg', 'reg_cls'
+    @num_cls: The number of classes for classification.
+    @num_reg: The number of regression outputs.
     @list_inplanes: The number of channels per residual block in ResBlock list.
-    @num_rnn_sequence: The number of RRN sequences.
     @len_spectrum: The length of input spectrum.
     """
 
     def __init__(self,
+                object_type='cls',
                 mode="raw",
-                num_label=3,
+                num_cls=3,
+                num_reg=5,
                 list_inplanes= [3,6,18],
                 len_spectrum=3834,
                 sequence_len=50
                 ):
         super(RRNet, self).__init__()
 
-
-
-
         assert len(list_inplanes) < 6
         # assert len_spectrum % num_rnn_sequence == 0
 
+        self.object_type = object_type
         self.mode = mode
         self.len_spectrum = len_spectrum
         self.sequence_len = sequence_len
@@ -121,6 +122,7 @@ class RRNet(nn.Module):
         self.times=int(np.ceil(len_spectrum/8))
 
         if self.mode == "pre-RNN":
+            self.num_rnn_sequence = 20  # 设置默认值
             self.rnn = nn.RNN(
                 input_size=self.len_spectrum // self.num_rnn_sequence,
                 hidden_size=self.len_spectrum // self.num_rnn_sequence,
@@ -128,18 +130,18 @@ class RRNet(nn.Module):
                 batch_first=True,
             )
 
-        self.ResBlock_list = []
+        ResBlock_modules = []
         for i in range(len(self.list_inplanes)-1):
-            self.ResBlock_list.append(
+            ResBlock_modules.append(
                 nn.Sequential(
                     ResBlock(self.list_inplanes[i], self.list_inplanes[i+1]),
                     nn.AvgPool1d(3),
                 )
             )
-        self.ResBlock_list = nn.Sequential(*self.ResBlock_list)
+        self.ResBlock_list = nn.Sequential(*ResBlock_modules)
 
         if self.mode == "post-RNN":
-            self.embeding=embedding(input_channel=list_inplanes[-1], embedding_c=sequence_len, kernel_size=3, overlap=0, padding=1)
+            self.embeding=embedding(input_channel=self.list_inplanes[-1], embedding_c=sequence_len, kernel_size=3, overlap=0, padding=1)
             self.rnn = nn.RNN(
                 input_size=sequence_len,
                 hidden_size=sequence_len,
@@ -155,27 +157,37 @@ class RRNet(nn.Module):
             nn.ReLU(),
             nn.Dropout(p=0.3),
         )
-        self.fc2 = nn.Sequential(
-            nn.Linear(
-                in_features=256,
-                out_features=128,
-            ),
-            nn.ReLU(),
-            nn.Dropout(p=0.3),
-        )
-        self.mu = nn.Linear(
-            in_features=128,
-            out_features=num_label,
-        )
-        # self.sigma = nn.Sequential(
-        #     nn.Linear(
-        #         in_features=128,
-        #         out_features=num_label,
-        #     ),
-        #     nn.Softplus()
-        # )
+        
+        if self.object_type in ['cls', 'cls_reg', 'reg_cls']:
+            self.cls_fc = nn.Sequential(
+                nn.Linear(
+                    in_features=256,
+                    out_features=128,
+                ),
+                nn.ReLU(),
+                nn.Dropout(p=0.3),
+            )
+            self.cls = nn.Linear(
+                in_features=128,
+                out_features=num_cls,
+            )
+            
+        if self.object_type in ['reg', 'cls_reg', 'reg_cls']:
+            self.reg_fc = nn.Sequential(
+                nn.Linear(
+                    in_features=256,
+                    out_features=128,
+                ),
+                nn.ReLU(),
+                nn.Dropout(p=0.3),
+            )
+            self.reg = nn.Linear(
+                in_features=128,
+                out_features=num_reg,
+            )
 
     def forward(self, x):
+
         x=torch.cat([x, torch.zeros([x.size(0),x.size(1)%8]).to(x.device)], dim=1)
         B,L = x.size()
 
@@ -194,9 +206,18 @@ class RRNet(nn.Module):
             del h_n
 
         x = self.fc1(x.flatten(1))
-        x = self.fc2(x)
         
-        return self.mu(x)
+        out_put = {}
+        
+        if self.object_type in ['cls', 'cls_reg', 'reg_cls']:
+            cls_output = self.cls(self.cls_fc(x))
+            out_put['cls'] = cls_output
+            
+        if self.object_type in ['reg', 'cls_reg', 'reg_cls']:
+            reg_output = self.reg(self.reg_fc(x))
+            out_put['reg'] = reg_output
+        
+        return out_put
 
     def get_loss(self, y_true, y_pred, y_sigma):
 
