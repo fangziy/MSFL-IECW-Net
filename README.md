@@ -523,11 +523,15 @@ CEMP星被认为是由大爆炸后第一代恒星污染的气体形成的，是�
 
 ### 引用格式
 ```bibtex
-@misc{stellar_spectrum_dl_2024,
-  title={Deep Learning Framework for Stellar Spectrum Analysis and CEMP Star Identification},
-  author={Ziyu Fang},
-  year={2024},
-  note={Framework for stellar parameter estimation and CEMP star search using LAMOST DR8 data}
+@article{fang2025catalog,
+  title={A Catalog of 12,766 Carbon-enhanced Metal-poor Stars from LAMOST Data Release 8},
+  author={Fang, Ziyu and Li, Xiangru and Li, Haining},
+  journal={The Astrophysical Journal Supplement Series},
+  volume={277},
+  number={1},
+  pages={30},
+  year={2025},
+  publisher={IOP Publishing}
 }
 ```
 
@@ -541,113 +545,7 @@ CEMP星被认为是由大爆炸后第一代恒星污染的气体形成的，是�
 
 </div>
 
-```
-Author: Ziyu Fang
-Date: 2024-12-25
-Email: fangziyushiwo@126.com
-```
 
-## 环境准备
-
-```
-conda create -n MPDB python=3.12 pytorch==2.2.2 cudatoolkit=11.8
-
-pip install -r requirements.txt
-```
-
-## 项目结构
-
-```
-project/
-
-├── data/         # 数据集
-
-     ├── spectra/
-
-     ├── train/
-
-     └── val/
-
-├── utils/        
-
-├── models/         
-
-├── train.py   
-
-├── val.py   
-
-└── README.md     # 项目说明文档
-
-```
-
-## 数据集准备
-
-数据集为一个csv表格数据。
-
-可以通过在配置文件中指定features_name来区分X和，y。其中最后一列为y，其余列为X。
-
-## 配置文件
-
-```
-#项目名称
-object_name: 'MPBD_reg'
-数据路径
-data_dir : "./data"
-
-#任务类型
-object_type: 'reg'
-#回归部分列名
-reg_columns : ["FeH", "CH", "Teff", "logg", "CFe"]
-#分类部分列名
-cls_columns: ['f_CEMP']
-cls_dict: {0: 'MP', 1: 'CEMP', 2: 'NMP'}
-num_classes: 3
-
-#回归标签归一化
-y_mean : [-8.81020067e-01, -9.78005818e-01, 4.91095684e+03, 2.55795385e+00, -9.69857512e-02]
-y_std : [7.61077821e-01, 8.42965361e-01, 4.97515564e+02, 1.15882902e+00, 3.06636238e-01]
-
-#模型选择
-model: 'MPBDNet'
-#模型参数选择
-list_inplanes: [20,40,80,160]
-lr: 0.0001
-#损失函数
-loss: 'MSELoss'
-#继续训练
-resume_from : 'D:/Notebook_workdir/thesis/model_save/MPBD_reg/best.pth'
-```
-
-## 训练
-
-```
-
-#config中给出配置文件的路径
-python train.py --config=./config/MPBD_reg.yaml
-
-```
-
-## 验证
-
-```
-
-python val.py --config=./config/MPBD_reg.yaml
-
-```
-
-
-##数据处理可视化
-```
-
-python D:\Notebook_workdir\thesis\tools\vision_data_prepocess.py
-
-```
-
-## 模型融合
-
-模型融合功能可以将多个已训练的模型组合起来，通过集成学习提高预测性能。
-
-### 基本使用
 
 ```bash
 # 使用预定义的配置文件进行模型融合
