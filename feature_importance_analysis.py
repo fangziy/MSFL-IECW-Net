@@ -36,7 +36,7 @@ parser.add_argument('--train_root_directory', type=str, help='训练集根目录
 parser.add_argument('--val_root_directory', type=str, help='验证集根目录路径')
 parser.add_argument('--test_root_directory', type=str, help='测试集根目录路径')
 parser.add_argument('--pretrain', type=bool, default=True, help='是否使用预训练模型')
-parser.add_argument('--pretrain_path', type=str, default='mobilenetv3-large-1cd25616.pth', help='预训练模型的路径')
+parser.add_argument('--pretrain_path', type=str, default='./model_save/MPBD_reg/best.pth', help='预训练模型的路径')
 parser.add_argument('--resume', type=bool, default=True, help='是否从断点恢复训练')
 parser.add_argument('--num_noise_block', type=int, default=9, help='噪音块数量')
 parser.add_argument('--resume_from', type=str, default='/data/fog/fog_recognition/pretrian/10_29_best_2cls.pth', help='断点文件的路径')

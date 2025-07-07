@@ -176,7 +176,7 @@ if args.object_type == 'reg':
 optimizer = optim.AdamW(model.parameters(), lr=lr)
 
 # 训练模型
-num_epochs = 200
+num_epochs = args.epochs
 def train(num_epochs):
     best_loss=1000
     for epoch in tqdm(range(num_epochs)):

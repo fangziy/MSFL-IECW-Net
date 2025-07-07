@@ -1,10 +1,3 @@
-'''
-copyright
-author: Ziyu Fang
-email:fangziyushiwo.com
-Date: 2024-12-25
-版权所有，转载请注明作者和邮箱
-'''
 
 import torch
 import torch.nn as nn
@@ -77,9 +70,7 @@ class MPBDBlock(nn.Module):
                 ),
             )
     def forward(self, x):
-
         x=self.Block1(x)+self.Block2(x)+self.downsample(x)
-        # x=self.Block1(x)+self.downsample(x)
         return x
 
 class embedding(nn.Module):
@@ -92,6 +83,11 @@ class embedding(nn.Module):
                 padding=1,
 
                  ):
+        self.input_channel=input_channel
+        self.embedding_c=embedding_c
+        self.kernel_size=kernel_size
+        self.overlap=overlap
+        self.padding=padding
         super(embedding, self).__init__()
         self.embedding = nn.Sequential(
             nn.Conv1d(
@@ -107,12 +103,21 @@ class embedding(nn.Module):
         )
 
     def forward(self, x):
+        insize=x.size(2)
+        self.output_length=self.caculate_output_length(insize)
         x=self.embedding(x)
         x=x.permute(0,2,1)
+        # print((insize+2*self.padding-self.kernel_size)//(self.kernel_size-self.overlap)+1,'计算的长度')
         return x
+    
+    def caculate_output_length(self, input_length):
+        """
+        计算输出长度
+        """
+        output_length = (input_length + 2 * self.padding - self.kernel_size) // (self.kernel_size - self.overlap) + 1
+        return output_length
 
 class MPBDNet(nn.Module):
-    
     def __init__(self,
                 num_label=3,
                 list_inplanes= [3,6,18],
@@ -122,6 +127,7 @@ class MPBDNet(nn.Module):
                 cls_columns=[],
                 reg_columns=[],
                 object_type="cls",
+                blocks_length=3
                 ):
         super(MPBDNet, self).__init__()
 
@@ -138,15 +144,15 @@ class MPBDNet(nn.Module):
 
 
         self.MPBDBlock_list = []
-        for i in range(len(self.list_inplanes)-1):
-            self.MPBDBlock_list.append(
-                nn.Sequential(
-                    MPBDBlock(self.list_inplanes[i], self.list_inplanes[i+1]),
-                    MPBDBlock(self.list_inplanes[i+1], self.list_inplanes[i+1]),
-                    MPBDBlock(self.list_inplanes[i+1], self.list_inplanes[i+1]),
-                    nn.AvgPool1d(3),
-                )
-            )
+        
+        for i in range(len(self.list_inplanes) - 1):
+            block_sequence = []
+            for _ in range(blocks_length):
+                block_sequence.append(MPBDBlock(self.list_inplanes[i], self.list_inplanes[i + 1]))
+                self.list_inplanes[i] = self.list_inplanes[i + 1]
+            block_sequence.append(nn.AvgPool1d(3))
+            self.MPBDBlock_list.append(nn.Sequential(*block_sequence))
+
         self.MPBDBlock_list = nn.Sequential(*self.MPBDBlock_list)
 
         self.embeding=embedding(
@@ -169,10 +175,11 @@ class MPBDNet(nn.Module):
             num_layers=1,
             batch_first=True,
         )
-
+        self.fc1_input_length = self.caculate_fc_input_length(len_spectrum)
+        print(self.fc1_input_length)
         self.fc1 = nn.Sequential(
             nn.Linear(
-                in_features=1500,
+                in_features=self.fc1_input_length,
                 out_features=256,
             ),
             nn.ReLU(),
@@ -206,33 +213,48 @@ class MPBDNet(nn.Module):
                 out_features=len(reg_columns),
             )
 
+    def caculate_fc_input_length(self, input_length):
+        """
+        计算 fc1 的输入维度
+        """
+        # 模拟前向传播过程计算输出长度
+        x = torch.randn(1, 1, input_length)
+        x = self.MPBDBlock_list(x)
+        x = torch.relu(x)
+        x = self.embeding(x)
+        x = (self.rnn(x)[0] + torch.flip(self.rnn2(torch.flip(x, dims=[1]))[0], dims=[1])) / 2
+        x = x.flatten(1)
+        return x.size(1)
+    
+    def caculate_fc_input_length_fast(self, input_length):
+        """
+        计算 fc1 的输入维度
+        """
+        # 手动计算每一层的输出尺寸
+        for block_seq in self.MPBDBlock_list:
+            for layer in block_seq:
+                if isinstance(layer, nn.Conv1d):
+                    input_length = (input_length + 2 * layer.padding[0] - layer.kernel_size[0]) // layer.stride[0] + 1
+                elif isinstance(layer, nn.AvgPool1d):
+                    input_length = (input_length + 2 * layer.padding - layer.kernel_size) // layer.stride + 1
+
+        # 计算 embedding 层的输出长度
+        input_length = self.embeding.caculate_output_length(input_length)
+
+        # LSTM 层输出尺寸不变
+        # 展平后的输入维度
+        fc_input_length = input_length * self.embedding_c
+        return fc_input_length
+
+
     def forward(self, x):
         if x.size(1)%8!=0:
             x=torch.cat([x, torch.zeros([x.size(0),x.size(1)%8]).to(x.device)], dim=1)
-        B,L = x.size()
-        x = x.reshape(-1, 1, L)
+        x = x.unsqueeze(1)
         x = self.MPBDBlock_list(x)
         x = torch.relu(x)
         x = self.embeding(x)
         # x=torch.concat(self.rnn(x)[0],torch.flip(self.rnn2(torch.flip(x,dims=[1]))[0],dims=[1]),dim=1)
-        x=( self.rnn(x)[0]+torch.flip(self.rnn2(torch.flip(x,dims=[1]))[0],dims=[1]))/2
+        x=(self.rnn(x)[0]+torch.flip(self.rnn2(torch.flip(x,dims=[1]))[0],dims=[1]))/2
+        print(x.flatten(1).shape)
         x = self.fc1(x.flatten(1))
-    
-
-        if self.object_type=="cls":
-            x=self.cls_benck(x)
-            return self.cls(x)
-        if self.object_type=="reg":
-            x=self.reg_benck(x)
-            return self.reg(x)
-        
-        if self.object_type=="reg_cls":
-            x1=self.cls_benck(x)
-            x2=self.reg_benck(x)
-            x2=x1+x2
-            cls=self.cls(x1)
-            reg=self.reg(x2)
-            x=torch.cat([cls,reg],dim=1)
-            return x
-
-
